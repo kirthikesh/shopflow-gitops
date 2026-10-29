@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels: { environment: {{ .Values.environment | quote }}, app: frontend, part-of: shopflow }
+spec:
+  replicas: {{ (index .Values.workloads "frontend").replicas | default 1 }}
+  strategy:
+    {{- toYaml .Values.updateStrategy | nindent 4 }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: { app: frontend }
+  template:
+    metadata:
+      labels: { environment: {{ .Values.environment | quote }}, app: frontend, part-of: shopflow }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: frontend
+          image: {{ include "shopflow.image" (list . "frontend") }}
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: PRODUCT_SERVICE_URL
+              value: "http://product-service:8000"
+            - name: CART_SERVICE_URL
+              value: "http://cart-service:8000"
+            - name: ORDER_SERVICE_URL
+              value: "http://order-service:8080"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          livenessProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 5
+          resources:
+            {{- toYaml (index .Values.workloads "frontend").resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: next-cache
+              mountPath: /app/.next/cache
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: next-cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  labels: { environment: {{ .Values.environment | quote }}, app: frontend, part-of: shopflow }
+spec:
+  selector: { app: frontend }
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http

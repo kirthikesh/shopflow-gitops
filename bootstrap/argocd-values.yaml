@@ -1,0 +1,37 @@
+# Argo CD, trimmed for a small dev cluster: no SSO (Dex) and no notifications
+# controller, small resource requests, UI reached through kubectl port-forward.
+
+dex:
+  enabled: false
+notifications:
+  enabled: false
+
+configs:
+  params:
+    # TLS is terminated by kubectl port-forward locally; no public endpoint.
+    server.insecure: true
+  cm:
+    # Poll Git every 60 s instead of 180 s. The pipeline also asks for a refresh
+    # straight after each commit, so this is only the fallback.
+    timeout.reconciliation: 60s
+
+controller:
+  resources:
+    requests: { cpu: 50m, memory: 256Mi }
+    limits: { memory: 1Gi }
+server:
+  resources:
+    requests: { cpu: 10m, memory: 64Mi }
+    limits: { memory: 256Mi }
+repoServer:
+  resources:
+    requests: { cpu: 20m, memory: 128Mi }
+    limits: { memory: 512Mi }
+applicationSet:
+  resources:
+    requests: { cpu: 10m, memory: 64Mi }
+    limits: { memory: 256Mi }
+redis:
+  resources:
+    requests: { cpu: 10m, memory: 32Mi }
+    limits: { memory: 128Mi }

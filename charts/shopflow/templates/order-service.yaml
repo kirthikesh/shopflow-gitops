@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  labels: { environment: {{ .Values.environment | quote }}, app: order-service, part-of: shopflow }
+spec:
+  replicas: {{ (index .Values.workloads "order-service").replicas | default 1 }}
+  strategy:
+    {{- toYaml .Values.updateStrategy | nindent 4 }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: { app: order-service }
+  template:
+    metadata:
+      labels: { environment: {{ .Values.environment | quote }}, app: order-service, part-of: shopflow }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: order-service
+          image: {{ include "shopflow.image" (list . "order-service") }}
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: shopflow-secrets, key: POSTGRES_PASSWORD }
+            - name: SERVICEBUS_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef: { name: shopflow-secrets, key: SERVICEBUS_CONNECTION_STRING }
+            - name: DATABASE_URL
+              value: "jdbc:postgresql://postgres:5432/orders"
+            - name: DATABASE_USER
+              value: "shopflow"
+            - name: DATABASE_PASSWORD
+              value: "$(POSTGRES_PASSWORD)"
+            - name: PRODUCT_SERVICE_URL
+              value: "http://product-service:8000"
+            - name: MESSAGING_ENABLED
+              value: "true"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          startupProbe:
+            httpGet: { path: /health/liveness, port: http }
+            periodSeconds: 5
+            failureThreshold: 36   # Spring Boot gets up to 3 minutes to start
+          livenessProbe:
+            httpGet: { path: /health/liveness, port: http }
+            periodSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /health/readiness, port: http }
+            periodSeconds: 5
+          resources:
+            {{- toYaml (index .Values.workloads "order-service").resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  labels: { environment: {{ .Values.environment | quote }}, app: order-service, part-of: shopflow }
+spec:
+  selector: { app: order-service }
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

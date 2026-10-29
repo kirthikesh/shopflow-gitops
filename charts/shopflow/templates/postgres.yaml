@@ -1,0 +1,69 @@
+# Dev only: Postgres inside the cluster. A later phase replaces this with
+# Azure Database for PostgreSQL Flexible Server behind a private endpoint.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+data:
+  init.sql: |
+    CREATE DATABASE products;
+    CREATE DATABASE orders;
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  labels: { environment: {{ .Values.environment | quote }}, app: postgres }
+spec:
+  serviceName: postgres
+  replicas: {{ (index .Values.workloads "postgres").replicas | default 1 }}
+  selector:
+    matchLabels: { app: postgres }
+  template:
+    metadata:
+      labels: { environment: {{ .Values.environment | quote }}, app: postgres }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: shopflow
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: shopflow-secrets, key: POSTGRES_PASSWORD }
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "shopflow"]
+            periodSeconds: 5
+          resources:
+            {{- toYaml (index .Values.workloads "postgres").resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: init
+          configMap: { name: postgres-init }
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 8Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  selector: { app: postgres }
+  ports:
+    - port: 5432

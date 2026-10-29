@@ -1,0 +1,4 @@
+# dev: every push to main in shopflow-app lands here automatically.
+environment: dev
+image:
+  tag: "bc61219" # updated by the app pipeline

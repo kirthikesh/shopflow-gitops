@@ -1,0 +1,50 @@
+# One Argo CD Application per environment, generated from this list.
+# Each renders charts/shopflow with that environment's values file and keeps
+# the shopflow-<env> namespace in sync with Git: changes made by hand in the
+# cluster are reverted (selfHeal), and resources deleted from Git are removed.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: shopflow
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - env: dev
+          - env: prod
+  template:
+    metadata:
+      name: shopflow-{{ .env }}
+      labels:
+        environment: "{{ .env }}"
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/kirthikesh/shopflow-gitops.git
+        targetRevision: main
+        path: charts/shopflow
+        helm:
+          valueFiles:
+            - ../../envs/{{ .env }}/values.yaml
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: shopflow-{{ .env }}
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        managedNamespaceMetadata:
+          labels:
+            # Pod Security Standards. Postgres needs "baseline": its image
+            # starts as root before dropping privileges.
+            pod-security.kubernetes.io/enforce: baseline
+            pod-security.kubernetes.io/warn: restricted
+            pod-security.kubernetes.io/audit: restricted
+        retry:
+          limit: 5
+          backoff: { duration: 10s, factor: 2, maxDuration: 3m }

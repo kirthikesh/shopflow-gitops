@@ -1,0 +1,61 @@
+# Defaults shared by every environment. envs/<env>/values.yaml overrides them.
+
+environment: dev
+
+image:
+  registry: acrshopflow0q6q39.azurecr.io
+  # Set per environment by the app pipeline: the commit it built and scanned.
+  tag: ""
+
+# Public LoadBalancer in front of the frontend.
+publicEndpoint:
+  enabled: true
+
+# Sized to share a small node: requests are what the scheduler reserves,
+# limits stop a leak from taking the node down. No CPU limits, so a pod can
+# burst into idle CPU without being throttled.
+workloads:
+  product-service:
+    resources:
+      requests: { cpu: 20m, memory: 128Mi }
+      limits: { memory: 256Mi }
+  cart-service:
+    resources:
+      requests: { cpu: 20m, memory: 96Mi }
+      limits: { memory: 256Mi }
+  order-service:
+    resources:
+      requests: { cpu: 50m, memory: 384Mi }
+      limits: { memory: 768Mi }
+  payment-service:
+    resources:
+      requests: { cpu: 10m, memory: 32Mi }
+      limits: { memory: 128Mi }
+  notification-service:
+    resources:
+      requests: { cpu: 10m, memory: 64Mi }
+      limits: { memory: 192Mi }
+  frontend:
+    resources:
+      requests: { cpu: 25m, memory: 128Mi }
+      limits: { memory: 384Mi }
+  postgres:
+    resources:
+      requests: { cpu: 50m, memory: 256Mi }
+      limits: { memory: 512Mi }
+  redis:
+    resources:
+      requests: { cpu: 20m, memory: 64Mi }
+      limits: { memory: 256Mi }
+  mailpit:
+    resources:
+      requests: { cpu: 10m, memory: 32Mi }
+      limits: { memory: 128Mi }
+
+# Replace pods one at a time: stop the old pod, then start the new one. Needs
+# no spare node capacity during a rollout; costs a few seconds per service.
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 0
+    maxUnavailable: 1

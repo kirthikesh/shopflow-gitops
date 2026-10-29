@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  labels: { environment: {{ .Values.environment | quote }}, app: notification-service, part-of: shopflow }
+spec:
+  replicas: {{ (index .Values.workloads "notification-service").replicas | default 1 }}
+  strategy:
+    {{- toYaml .Values.updateStrategy | nindent 4 }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: { app: notification-service }
+  template:
+    metadata:
+      labels: { environment: {{ .Values.environment | quote }}, app: notification-service, part-of: shopflow }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: notification-service
+          image: {{ include "shopflow.image" (list . "notification-service") }}
+          ports:
+            - name: http
+              containerPort: 8084
+          env:
+            - name: SERVICEBUS_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef: { name: shopflow-secrets, key: SERVICEBUS_CONNECTION_STRING }
+            - name: SMTP_HOST
+              value: "mailpit"
+            - name: SMTP_PORT
+              value: "1025"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /ready, port: http }
+            periodSeconds: 5
+          resources:
+            {{- toYaml (index .Values.workloads "notification-service").resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  labels: { environment: {{ .Values.environment | quote }}, app: notification-service, part-of: shopflow }
+spec:
+  selector: { app: notification-service }
+  ports:
+    - name: http
+      port: 8084
+      targetPort: http

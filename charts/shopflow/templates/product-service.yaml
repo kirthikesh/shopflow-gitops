@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service
+  labels: { environment: {{ .Values.environment | quote }}, app: product-service, part-of: shopflow }
+spec:
+  replicas: {{ (index .Values.workloads "product-service").replicas | default 1 }}
+  strategy:
+    {{- toYaml .Values.updateStrategy | nindent 4 }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: { app: product-service }
+  template:
+    metadata:
+      labels: { environment: {{ .Values.environment | quote }}, app: product-service, part-of: shopflow }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: product-service
+          image: {{ include "shopflow.image" (list . "product-service") }}
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: shopflow-secrets, key: POSTGRES_PASSWORD }
+            - name: DATABASE_URL
+              value: "postgresql+psycopg://shopflow:$(POSTGRES_PASSWORD)@postgres:5432/products"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /ready, port: http }
+            periodSeconds: 5
+          resources:
+            {{- toYaml (index .Values.workloads "product-service").resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+  labels: { environment: {{ .Values.environment | quote }}, app: product-service, part-of: shopflow }
+spec:
+  selector: { app: product-service }
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

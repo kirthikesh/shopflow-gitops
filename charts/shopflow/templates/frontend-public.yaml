@@ -1,0 +1,16 @@
+{{- if .Values.publicEndpoint.enabled }}
+# Public entry point: an Azure Standard Load Balancer in front of the frontend.
+# (A later phase replaces this with an ingress controller and TLS.)
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-public
+  labels: { environment: {{ .Values.environment | quote }}, app: frontend, part-of: shopflow }
+spec:
+  type: LoadBalancer
+  selector: { app: frontend }
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+{{- end }}

@@ -1,0 +1,42 @@
+# Catches every email the notification service sends. View it with:
+#   kubectl -n shopflow-<env> port-forward svc/mailpit 8025:8025   then open http://localhost:8025
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailpit
+  labels: { environment: {{ .Values.environment | quote }}, app: mailpit }
+spec:
+  replicas: {{ (index .Values.workloads "mailpit").replicas | default 1 }}
+  strategy:
+    {{- toYaml .Values.updateStrategy | nindent 4 }}
+  selector:
+    matchLabels: { app: mailpit }
+  template:
+    metadata:
+      labels: { environment: {{ .Values.environment | quote }}, app: mailpit }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: mailpit
+          image: axllent/mailpit:latest
+          ports:
+            - { name: smtp, containerPort: 1025 }
+            - { name: http, containerPort: 8025 }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          resources:
+            {{- toYaml (index .Values.workloads "mailpit").resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mailpit
+spec:
+  selector: { app: mailpit }
+  ports:
+    - { name: smtp, port: 1025 }
+    - { name: http, port: 8025 }

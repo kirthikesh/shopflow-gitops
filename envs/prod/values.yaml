@@ -1,0 +1,5 @@
+# prod: only changes when someone approves "Promote to prod" in the app pipeline,
+# which copies the tag dev was running and verified.
+environment: prod
+image:
+  tag: "bc61219" # updated by the app pipeline after approval
