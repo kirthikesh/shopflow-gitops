@@ -1,11 +1,18 @@
 {{- if .Values.publicEndpoint.enabled }}
-# Public entry point: an Azure Standard Load Balancer in front of the frontend.
+# Entry point: an Azure Standard Load Balancer in front of the frontend.
+#   internal: false  public IP, reachable from the internet (prod)
+#   internal: true   private IP in the spoke VNet, reachable only from inside
+#                    the network, e.g. the pipeline agent in the hub (dev)
 # (A later phase replaces this with an ingress controller and TLS.)
 apiVersion: v1
 kind: Service
 metadata:
   name: frontend-public
   labels: { environment: {{ .Values.environment | quote }}, app: frontend, part-of: shopflow }
+  {{- if .Values.publicEndpoint.internal }}
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+  {{- end }}
 spec:
   type: LoadBalancer
   selector: { app: frontend }

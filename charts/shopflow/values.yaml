@@ -7,9 +7,11 @@ image:
   # Set per environment by the app pipeline: the commit it built and scanned.
   tag: ""
 
-# Public LoadBalancer in front of the frontend.
+# Load balancer in front of the frontend. internal: true gives it a private IP
+# in the VNet instead of a public one.
 publicEndpoint:
   enabled: true
+  internal: false
 
 # Sized so dev, prod and Argo CD share one 2-vCPU node, where AKS's own system
 # pods already reserve about 70% of the CPU. Requests are only what the

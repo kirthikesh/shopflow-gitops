@@ -1,4 +1,8 @@
 # dev: every push to main in shopflow-app lands here automatically.
 environment: dev
+# Dev is only reachable inside the network (the pipeline agent smoke-tests it
+# from the hub). Only prod gets a public IP.
+publicEndpoint:
+  internal: true
 image:
   tag: "333145a" # updated by the app pipeline
