@@ -2,4 +2,4 @@
 # which copies the tag dev was running and verified.
 environment: prod
 image:
-  tag: "bc61219" # updated by the app pipeline after approval
+  tag: "333145a" # updated by the app pipeline after approval
