@@ -6,4 +6,4 @@ environment: prod
 canary:
   enabled: true
 image:
-  tag: "333145a" # updated by the app pipeline after approval
+  tag: "0379721" # updated by the app pipeline after approval
