@@ -1,12 +1,35 @@
-apiVersion: apps/v1
-kind: Deployment
+{{- /*
+With canary.enabled (prod) the frontend is an Argo Rollouts Rollout instead of
+a Deployment: a new version first gets a share of the pods, an automated health
+check runs against the canary pods only, and the rollout continues only if it
+passes. A failed check aborts and returns all traffic to the old version.
+*/}}
+{{- $canary := .Values.canary.enabled }}
+apiVersion: {{ if $canary }}argoproj.io/v1alpha1{{ else }}apps/v1{{ end }}
+kind: {{ if $canary }}Rollout{{ else }}Deployment{{ end }}
 metadata:
   name: frontend
   labels: { environment: {{ .Values.environment | quote }}, app: frontend, part-of: shopflow }
 spec:
+  {{- if $canary }}
+  replicas: {{ .Values.canary.replicas }}
+  strategy:
+    canary:
+      # Only the canary pods, so the health check tests the new version alone.
+      canaryService: frontend-canary
+      steps:
+        # No service mesh, so the split is by pod count: 1 new pod next to the
+        # old ones behind the public load balancer.
+        - setWeight: {{ .Values.canary.weight }}
+        - analysis:
+            templates:
+              - templateName: frontend-health
+        - pause: { duration: {{ .Values.canary.pause }} }
+  {{- else }}
   replicas: {{ (index .Values.workloads "frontend").replicas | default 1 }}
   strategy:
     {{- toYaml .Values.updateStrategy | nindent 4 }}
+  {{- end }}
   revisionHistoryLimit: 3
   selector:
     matchLabels: { app: frontend }

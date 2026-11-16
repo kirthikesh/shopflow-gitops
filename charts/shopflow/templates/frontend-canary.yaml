@@ -1,0 +1,59 @@
+{{- if .Values.canary.enabled }}
+# Points only at the canary pods during a rollout (Argo Rollouts adds the pod
+# template hash to the selector), so the health check below tests the new
+# version on its own.
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-canary
+  labels: { environment: {{ .Values.environment | quote }}, app: frontend, part-of: shopflow }
+spec:
+  selector: { app: frontend }
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+---
+# The canary's gate: the health and product endpoints must answer through the
+# canary pods only. More than one failed check aborts the rollout.
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: frontend-health
+  labels: { environment: {{ .Values.environment | quote }}, app: frontend, part-of: shopflow }
+spec:
+  metrics:
+    - name: canary-responds
+      count: {{ .Values.canary.checks }}
+      initialDelay: 20s
+      interval: 20s
+      failureLimit: 1
+      provider:
+        job:
+          spec:
+            backoffLimit: 0
+            activeDeadlineSeconds: 60
+            template:
+              spec:
+                restartPolicy: Never
+                automountServiceAccountToken: false
+                securityContext:
+                  runAsNonRoot: true
+                  runAsUser: 100
+                  seccompProfile: { type: RuntimeDefault }
+                containers:
+                  - name: check
+                    image: curlimages/curl:8.23.0
+                    command: ["/bin/sh", "-c"]
+                    args:
+                      - >-
+                        curl -fsS --max-time 5 http://frontend-canary:3000/api/health &&
+                        curl -fsS --max-time 5 http://frontend-canary:3000/api/products -o /dev/null
+                    securityContext:
+                      allowPrivilegeEscalation: false
+                      readOnlyRootFilesystem: true
+                      capabilities: { drop: ["ALL"] }
+                    resources:
+                      requests: { cpu: 5m, memory: 16Mi }
+                      limits: { memory: 64Mi }
+{{- end }}

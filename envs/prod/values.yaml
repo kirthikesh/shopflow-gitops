@@ -1,5 +1,9 @@
 # prod: only changes when someone approves "Promote to prod" in the app pipeline,
 # which copies the tag dev was running and verified.
 environment: prod
+# New frontend versions go out as a canary: one new pod first, an automated
+# health check against it, then the rest. A failed check rolls back by itself.
+canary:
+  enabled: true
 image:
   tag: "333145a" # updated by the app pipeline after approval

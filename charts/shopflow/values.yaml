@@ -62,3 +62,12 @@ updateStrategy:
   rollingUpdate:
     maxSurge: 0
     maxUnavailable: 1
+
+# Canary release for the frontend with Argo Rollouts. Off by default; prod
+# turns it on. weight is the share of pods that run the new version first.
+canary:
+  enabled: false
+  replicas: 2
+  weight: 50
+  checks: 4
+  pause: 30s

@@ -1,0 +1,9 @@
+# Argo Rollouts: progressive delivery (canary) for the frontend in prod.
+# One controller replica and small requests for the small dev cluster.
+controller:
+  replicas: 1
+  resources:
+    requests: { cpu: 10m, memory: 64Mi }
+    limits: { memory: 256Mi }
+dashboard:
+  enabled: false
