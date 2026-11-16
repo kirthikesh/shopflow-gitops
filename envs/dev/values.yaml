@@ -5,4 +5,4 @@ environment: dev
 publicEndpoint:
   internal: true
 image:
-  tag: "333145a" # updated by the app pipeline
+  tag: "0379721" # updated by the app pipeline
