@@ -1,5 +1,7 @@
 # shopflow-gitops
 
+> **Moved:** ShopFlow is now one repository: [kirthikesh/shopflow](https://github.com/kirthikesh/shopflow) (this code is in its `gitops/` folder, history included). This repository is archived.
+
 ![Argo CD](https://img.shields.io/badge/Argo_CD-3.5-111?style=flat-square&logo=argo&logoColor=white)
 ![Helm](https://img.shields.io/badge/Helm-chart-111?style=flat-square&logo=helm&logoColor=white)
 ![Argo Rollouts](https://img.shields.io/badge/Argo_Rollouts-canary-111?style=flat-square&logo=argo&logoColor=white)
